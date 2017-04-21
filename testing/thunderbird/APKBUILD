@@ -1,0 +1,113 @@
+# Maintainer: Leonardo Arena <larena@alpinelinux.org>
+pkgname=thunderbird
+pkgver=52.0.1
+_pkgver=$pkgver
+_xulver=52.0
+pkgrel=0
+pkgdesc="Mozilla Thunderbird mail/newsgroup client"
+url="http://www.mozilla.org/thunderbird/"
+arch="x86 x86_64"
+license="MPL2 or GPL2 or LGPL2+"
+depends="zip"
+makedepends="
+	alsa-lib-dev
+	autoconf2.13
+	automake
+	bsd-compat-headers
+	cairo-dev
+	curl-dev
+	dbus-glib-dev
+	gconf-dev
+	gtk+2.0-dev
+	gtk+3.0-dev
+	hicolor-icon-theme
+	hunspell-dev
+	icu-dev
+	libevent-dev
+	libidl-dev
+	libnotify-dev
+	libvpx-dev
+	libx11-dev
+	libxext-dev
+	libxt-dev
+	linux-headers
+	mesa-dev
+	nspr-dev
+	nss-dev
+	python
+	sqlite-dev
+	startup-notification-dev
+	wireless-tools-dev
+	yasm
+	"
+install=""
+subpackages=""
+source="https://ftp.mozilla.org/pub/mozilla.org/thunderbird/releases/$pkgver/source/thunderbird-$pkgver.source.tar.xz
+	mozconfig
+	thunderbird.desktop
+
+	0002-Use-C99-math-isfinite.patch
+	fix-fortify-inline.patch
+	fix-seccomp-bpf.patch
+	fix-toolkit.patch
+	fix-tools.patch
+	fix-xpcom.patch
+	mallinfo.patch
+	thunderbird-install-dir.patch
+	"
+builddir="${srcdir}/$pkgname-$pkgver"
+_mozappdir=/usr/lib/thunderbird
+
+prepare() {
+	default_prepare
+	cp "${srcdir}/mozconfig" .mozconfig
+	#echo "Replacing all instances of 'sys/sysctl.h' with 'linux/sysctl.h'..."
+	#for file in $(grep -rl "sys/sysctl.h" *); do
+	#	sed -i 's/sys\/sysctl.h/linux\/sysctl.h/g' $file
+	#done
+}
+
+build() {
+	cd "$builddir"
+	# mozilla's buildsystem is on drugs
+	export CFLAGS="$(echo $CFLAGS | sed -e 's/-Wall//' -e 's/-fexceptions/-fno-exceptions/g')"
+	#export CXXFLAGS="$CFLAGS -std=gnu++0x"
+	export CFLAGS="$CFLAGS -fno-delete-null-pointer-checks -fno-lifetime-dse -fno-schedule-insns2 "
+	export CXXFLAGS="$CXXFLAGS -fno-delete-null-pointer-checks -fno-lifetime-dse -fno-schedule-insns2"
+	export LDFLAGS="-Wl,-rpath,${_mozappdir}"
+	echo $CFLAGS
+	echo $CXXFLAGS
+	echo $LDFLAGS
+	echo $MAKEFLAGS
+	make -f client.mk build \
+		MOZ_MAKE_FLAGS="$MAKEFLAGS"
+}
+
+package() {
+	cd "$builddir"
+	make -j1 DESTDIR="$pkgdir" -f client.mk install
+
+	for i in 16x16 22x22 24x24 32x32 48x48 256x256; do
+		install -Dm644 other-licenses/branding/thunderbird/mailicon${i/x*/}.png \
+		"$pkgdir/usr/share/icons/hicolor/$i/apps/thunderbird.png"
+	done
+
+	install -Dm644 "$srcdir"/$pkgname.desktop \
+		"$pkgdir"/usr/share/applications/$pkgname.desktop
+
+	# xulrunner stub launcher has changed to using a symlink overlay...
+	# go figure
+	#ln -sf /usr/lib/xulrunner-${_xulver} ${pkgdir}/$_mozappdir/xulrunner
+}
+
+sha512sums="7b8324a230a10b738b9a28c31b195bfb149b1f47eec6662d93a7d0c424d56303dbc2bca6645b30323c6da86628d6e49de359e1067081a5d0bd66541174a8be48  thunderbird-52.0.1.source.tar.xz
+ab5f5e4e2935f996d312aafa7a79877be6f9b6cb431511f215e7312d27b099dc1515c663362aec6e075e476d64c6fe3f2ff534882a64cbc727e80ffb62332823  mozconfig
+a0061fcb2a7f66061e336a8d95948592f56f4752e56467f14ba63846720ebf845cce7511d1a2637e3b80d5a1ffdaa2fb783fa37195103425ef65222d45372012  thunderbird.desktop
+d35935e24cf2d137051ffa1a9f60ae9ded059d1d321e99d3b58f20d929b2fd04315e948542cec474bd80a5230ab1639d199d30a69b41daa06ac57fc87cced8e4  0002-Use-C99-math-isfinite.patch
+9b1be6229039373b8f6777e7bec0d58b11724f699b440cc94e0499d5a79a98a5e9bec2d1fb0cd4bc47710b54edd1e1044cfa7d43f1b69802824c7da4f4168bec  fix-fortify-inline.patch
+2f52fcd7c42f8e12c955e05aa12449aa486c5347d2a7406ff0dada66f64079152b18c3f65c43410df372e871488f17889bc337ced37d0b76305afdbcb55cb580  fix-seccomp-bpf.patch
+bd127835e1d4556fd2d8e9efbfa32709f249661236e1f2ae57f95bd180face5183312e082b665416d147ff78a13c0d79b6104dd838ea818879eba357e7aa32a0  fix-toolkit.patch
+c09e133adb64f2915a5375c8bcfce5a0f8cdba0ca5aacb55b3c816199ae117251c27b5596bb1d538200869d20adb9ffe684991a8e5019c040fe702dc6f2a1728  fix-tools.patch
+1bba7b6bb8ebec7f9aad149c0b7628962d3e3b6fa694943d161ac6763d2c0d4680c82f8e5343c15b47af9ffc35029fb7716e72b3e831335ce897bd1d091e1462  fix-xpcom.patch
+b687efd7a74995bcbf31e1389fe1cc0f15e8a49fecb0687250bd9f110beacecd5aca8264ea8964604b0d8dfc9660705f2011ba0c69b0c53f823072b0a048a9c9  mallinfo.patch
+c6f92f5cb0efeaa59a4c73cdd37543c91740cb74bf43d216c0ed8a7d6d759687af221fc9775247b00d9da7b754c9c9c9ad8c52b3b9d9f084619d7680d76ab4ec  thunderbird-install-dir.patch"
