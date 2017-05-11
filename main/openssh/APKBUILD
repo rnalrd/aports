@@ -3,14 +3,14 @@
 pkgname=openssh
 pkgver=7.5_p1
 _myver=${pkgver%_*}${pkgver#*_}
-pkgrel=1
+pkgrel=2
 pkgdesc="Port of OpenBSD's free SSH release"
 url="http://www.openssh.org/portable.html"
 arch="all"
 license="as-is"
 options="suid"
 depends="openssh-client openssh-sftp-server openssh-server"
-makedepends_build=""
+makedepends_build="linux-pam-dev"
 makedepends_host="libressl-dev zlib-dev linux-headers"
 makedepends="$makedepends_build $makedepends_host"
 subpackages="$pkgname-doc
@@ -63,7 +63,7 @@ build() {
 		--with-privsep-user=sshd \
 		--with-md5-passwords \
 		--with-ssl-engine \
-		--without-pam \
+		--with-pam \
 		|| return 1
 	make || return 1
 }
